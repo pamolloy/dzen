@@ -889,13 +889,35 @@ init_input_buffer(void) {
 	dzen.slave_win.tbuf = emalloc(dzen.slave_win.tsize * sizeof(char *));
 }
 
-int
-main(int argc, char *argv[]) {
-	int i, use_ewmh_dock=0;
-	char *action_string = NULL;
-	char *endptr, *fnpre = NULL;
+static int use_ewmh_dock = 0;
+static char *action_string, *fnpre = NULL;
 
-	/* default values */
+//TODO Further customize function for context
+int strtoi( char *string )
+// See: www.stackoverflow.com/questions/2729460
+{
+	char *remainder = NULL;
+	int value = 0;
+
+	errno = 0;
+	value = strtol(string, &remainder, 10);
+
+	switch (errno)
+	{
+		case ERANGE:
+			eprint("The data could not be represented.\n");
+			exit(1);
+		case EINVAL:
+			eprint("Unsupported base / radix\n");
+			exit(1);
+	}
+}
+
+void set_dzen()
+/*
+ * Set the default values for the dzen object
+ */
+{
 	dzen.title_win.name = "dzen title";
 	dzen.slave_win.name = "dzen slave";
 	dzen.cur_line  = 0;
@@ -914,160 +936,274 @@ main(int argc, char *argv[]) {
 	dzen.tsupdate = 0;
 	dzen.line_height = 0;
 	dzen.title_win.expand = noexpand;
+}
 
-	/* Connect to X server */
-	x_connect();
-	x_read_resources();
-
-	/* cmdline args */
-	for(i = 1; i < argc; i++)
-		if(!strncmp(argv[i], "-l", 3)){
-			if(++i < argc) {
-				dzen.slave_win.max_lines = atoi(argv[i]);
-				if(dzen.slave_win.max_lines)
-					init_input_buffer();
-			}
-		}
-		else if(!strncmp(argv[i], "-geometry", 10)) {
-			if(++i < argc) {
-				int t;
-				int tx, ty;
-				unsigned int tw, th;
-
-				t = XParseGeometry(argv[i], &tx, &ty, &tw, &th);
-
-				if(t & XValue)
-					dzen.title_win.x = tx;
-				if(t & YValue) {
-					dzen.title_win.y = ty;
-					if(!ty && (t & YNegative))
-						/* -0 != +0 */
-						dzen.title_win.y = -1;
+void parse_opts( int ac, char **av )
+/*
+ * Use a table driven approach to parse command line options
+ */
+{
+	int i, j;
+	for (i = 0; i < ac; i++) {	// Check command line arguments
+		for (j = 0; opts[j]->name != NULL; j++) {	// Compare built-in options
+			if (strncmp(av[i], opts[j]->name, opts[j]->len)) {
+				if (opts[j]->has_arg == 1) {	// Required argument
+					if (++i < ac)
+						opts[j]->setter(av[i]);
 				}
-				if(t & WidthValue)
-					dzen.title_win.width = (signed int) tw;
-				if(t & HeightValue)
-					dzen.line_height = (signed int) th;
-			}
-		}
-		else if(!strncmp(argv[i], "-u", 3)){
-			dzen.tsupdate = True;
-		}
-		else if(!strncmp(argv[i], "-expand", 8)){
-			if(++i < argc) {
-				switch(argv[i][0]){
-					case 'l':
-						dzen.title_win.expand = left;
-						break;
-					case 'c':
-						dzen.title_win.expand = both;
-						break;
-					case 'r':
-						dzen.title_win.expand = right;
-						break;
-					default:
-						dzen.title_win.expand = noexpand;
-				}
-			}
-		}
-		else if(!strncmp(argv[i], "-p", 3)) {
-			dzen.ispersistent = True;
-			if (i+1 < argc) {
-				dzen.timeout = strtoul(argv[i+1], &endptr, 10);
-				if(*endptr)
-					dzen.timeout = 0;
-				else
+				else if (opts[j]->has_arg == 0)	// Not required argument
+					opts[j]->setter(NULL);
 					i++;
-			}
-		}
-		else if(!strncmp(argv[i], "-ta", 4)) {
-			if(++i < argc) dzen.title_win.alignment = alignment_from_char(argv[i][0]);
-		}
-		else if(!strncmp(argv[i], "-sa", 4)) {
-			if(++i < argc) dzen.slave_win.alignment = alignment_from_char(argv[i][0]);
-		}
-		else if(!strncmp(argv[i], "-m", 3)) {
-			dzen.slave_win.ismenu = True;
-			if(i+1 < argc) {
-				if( argv[i+1][0] == 'v') {
-					++i;
-					break;
+					/* Unnecessary argument satisfies the
+					 * `setter' function declaration in the
+					 * `option' structure declaration */
+				else if (opts[j]->has_arg == 2) {	// Optional argument
+					if (i + 1 > ac)	// Last option, no argument
+						opts[j]->setter(NULL);
+					else if (av[i+1][0] == '-')	// Followed by option
+						opts[j]->setter(NULL);
+					else
+						opts[j]->setter(av[++i]);
 				}
-				dzen.slave_win.ishmenu = (argv[i+1][0] == 'h') ? ++i, True : False;
 			}
 		}
-		else if(!strncmp(argv[i], "-fn", 4)) {
-			if(++i < argc) dzen.fnt = argv[i];
-		}
-		else if(!strncmp(argv[i], "-e", 3)) {
-			if(++i < argc) action_string = argv[i];
-		}
-		else if(!strncmp(argv[i], "-title-name", 12)) {
-			if(++i < argc) dzen.title_win.name = argv[i];
-		}
-		else if(!strncmp(argv[i], "-slave-name", 12)) {
-			if(++i < argc) dzen.slave_win.name = argv[i];
-		}
-		else if(!strncmp(argv[i], "-bg", 4)) {
-			if(++i < argc) dzen.bg = argv[i];
-		}
-		else if(!strncmp(argv[i], "-fg", 4)) {
-			if(++i < argc) dzen.fg = argv[i];
-		}
-		else if(!strncmp(argv[i], "-x", 3)) {
-			if(++i < argc) dzen.title_win.x = dzen.slave_win.x = atoi(argv[i]);
-		}
-		else if(!strncmp(argv[i], "-y", 3)) {
-			if(++i < argc) dzen.title_win.y = atoi(argv[i]);
-		}
-		else if(!strncmp(argv[i], "-w", 3)) {
-			if(++i < argc) dzen.slave_win.width = atoi(argv[i]);
-		}
-		else if(!strncmp(argv[i], "-h", 3)) {
-			if(++i < argc) dzen.line_height= atoi(argv[i]);
-		}
-		else if(!strncmp(argv[i], "-tw", 4)) {
-			if(++i < argc) dzen.title_win.width = atoi(argv[i]);
-		}
-		else if(!strncmp(argv[i], "-fn-preload", 12)) {
-			if(++i < argc) {
-				fnpre = estrdup(argv[i]);
-			}
-		}
-#ifdef DZEN_XINERAMA
-		else if(!strncmp(argv[i], "-xs", 4)) {
-			if(++i < argc) dzen.xinescreen = atoi(argv[i]);
-		}
-#endif
-		else if(!strncmp(argv[i], "-dock", 6))
-			use_ewmh_dock = 1;
-		else if(!strncmp(argv[i], "-v", 3)) {
-			printf("dzen-"VERSION", (C)opyright 2007-2009 Robert Manea\n");
-			printf(
-			"Enabled optional features: "
+	}
+	print_usage();	//TODO Was a match found?
+}
+
+void set_lines( char *arg )
+{
+	dzen.slave_win.max_lines = strtoi(arg);
+	if (dzen.slave_win.max_lines)
+		init_input_buffer();
+}
+
+void set_geometry( char *arg )
+{
+	int t;
+	int tx, ty;
+	unsigned int tw, th;
+
+	t = XParseGeometry(arg, &tx, &ty, &tw, &th);
+
+	if (t & XValue)
+		dzen.title_win.x = tx;
+	if (t & YValue) {
+		dzen.title_win.y = ty;
+		if (!ty && (t & YNegative))
+			dzen.title_win.y = -1;	// -0 != +0
+	}
+	if (t & WidthValue)
+		dzen.title_win.width = (signed int) tw;
+	if (t & HeightValue)
+		dzen.line_height = (signed int) th;
+}
+
+void set_update( char *arg )
+{
+	dzen.tsupdate = True;
+}
+
+void set_expand( char *arg )
+{
+	switch (arg[0]) {
+		case 'l':
+			dzen.title_win.expand = left;
+			break;
+		case 'c':
+			dzen.title_win.expand = both;
+			break;
+		case 'r':
+			dzen.title_win.expand = right;
+			break;
+		default:
+			dzen.title_win.expand = noexpand;
+	}
+}
+
+void set_persist( char *arg )
+{
+	char *endptr = NULL;
+	dzen.ispersistent = True;
+	if (arg != NULL) {
+		dzen.timeout = strtoul(arg, &endptr, 10);
+		if (*endptr)
+			dzen.timeout = 0;
+		else
+			i++;
+	}
+}
+
+void set_title_align( char *arg )
+{
+	dzen.title_win.alignment = alignment_from_char(arg[0]);
+}
+
+void set_slave_align( char *arg )
+{
+	dzen.slave_win.alignment = alignment = alignment_from_char(arg[0]);
+}
+
+void set_menu( char *arg )
+/*
+ * Set menu variable in slave window structure to True
+ * Default orientation to vertical
+ * Check command line argument for orientation
+ */
+{
+	dzen.slave_win.ismenu = True;
+	dzen.slave_win.ishmenu = False;	// Default orientation
+	if (arg != NULL) {
+		if (arg[0] == 'v')
+			dzen.slave_win.ishmenu = False;
+		else if (arg[0] == 'h')
+			dzen.slave_win.ishmenu = True;
+		else
+			// Invalid input
+	}
+}
+
+void set_font( char *arg )
+{
+	dzen.fnt = arg;
+}
+
+void set_event( char *arg )
+{
+	action_string = arg;
+}
+
+void set_title_name( char *arg )
+{
+	dzen.title_win.name = arg;
+}
+
+void set_slave_name( char *arg )
+{
+	dzen.slave_win.name = arg;
+}
+
+void set_bg( char *arg )
+{
+	dzen.bg = arg;
+}
+
+void set_fg( char *arg )
+{
+	dzen.fg = arg;
+}
+
+void set_y( char *arg )
+{
+	dzen.title_win.y = strtoi(arg);
+}
+
+void set_x( char *arg )
+{
+	dzen.title_win.x = strtoi(arg);
+}
+
+void set_width( char *arg )
+{
+	dzen.slave_win.width = strtoi(arg);
+}
+
+void set_height( char *arg )
+{
+	dzen.line_height = strtoi(arg);
+}
+
+void set_title_width( char *arg )
+{
+	dzen.title_win.width = strtoi(arg);
+}
+
+void set_font_preload( char *arg )
+{
+	fnpre = estrdup(arg);
+}
+
+void set_xin_screen( char *arg )
+{
+	dzen.xinescreen = strtoi(arg);
+}
+
+void set_dock( char *arg )
+{
+	use_ewmh_dock = 1;
+}
+
+void print_version( char *arg )
+{
+	printf("dzen-"VERSION", (C)opyright 2007-2009 Robert Manea\n");
+	printf("Enabled optional features:"
 #ifdef DZEN_XMP
-			" XPM "
+		" XPM"
 #endif
 #ifdef DZEN_XFT
-			" XFT"
+		" XFT"
 #endif
 #ifdef DZEN_XINERAMA
-			" XINERAMA "
+		" XINERAMA"
 #endif
-			"\n"
-			);
-			return EXIT_SUCCESS;
-		}
-		else
-			eprint("usage: dzen2 [-v] [-p [seconds]] [-m [v|h]] [-ta <l|c|r>] [-sa <l|c|r>]\n"
-                   "             [-x <pixel>] [-y <pixel>] [-w <pixel>] [-h <pixel>] [-tw <pixel>] [-u]\n"
-				   "             [-e <string>] [-l <lines>]  [-fn <font>] [-bg <color>] [-fg <color>]\n"
-				   "             [-geometry <geometry string>] [-expand <left|right>] [-dock]\n"
-				   "             [-title-name <string>] [-slave-name <string>]\n"
+		"\n");
+	exit(EXIT_SUCCESS);
+}
+
+/*
+ * COMMAND LINE OPTIONS
+ * has_arg: 0 false, 1 true, 2 optional
+ * Options with optional arguments must check if argument
+ *  is NULL, if so no argument is required
+ */
+struct option
+{
+	char *name,
+	int len,
+	int has_arg,
+	void (*setter)(char *),
+};
+
+struct option opts[] = 
+{
+	{ "-l", 3, 1, set_lines };
+	{ "-geometry", 10, 1, set_geometry };
+	{ "-u", 3, 0, set_update };
+	{ "-expand", 8, 1, set_expand };
+	{ "-p", 3, 2, set_persist };
+	{ "-ta", 4, 1, set_title_align };
+	{ "-sa", 4, 1, set_slave_align };
+	{ "-m", 3, 2, set_menu };
+	{ "-fn", 4, 1, set_font };
+	{ "-e", 3, 1, set_event };
+	{ "-title-name", 12, 1, set_title_name };
+	{ "-slave-name", 12, 1, set_slave_name };
+	{ "-bg", 4, 1, set_bg };
+	{ "-fg", 3, 1, set_fg};
+	{ "-y", 3, 1, set_y };
+	{ "-x", 3, 1, set_x };
+	{ "-w", 3, 1, set_width };
+	{ "-h", 3, 1, set_height };
+	{ "-tw", 4, 1, set_title_width };
+	{ "-fn-preload", 12, 1, set_font_preload };
 #ifdef DZEN_XINERAMA
-				   "             [-xs <screen>]\n"
+	{ "-xs", 4, 1, set_xin_screen };
 #endif
-				  );
+	{ "-dock", 6, 0, set_dock };
+	{ "-v", 3, 0, print_version };
+	{ NULL, NULL};
+}
+
+int main( int ac, char **av )
+/*
+ * Loop through the command line arguments, and then the
+ * built-in flags, calling the appropriate function
+ */
+{
+	set_dzen();	// Default values
+	x_connect();
+	x_read_resources();
+	parse_opts(ac, av);
 
 	if(dzen.tsupdate && !dzen.slave_win.max_lines)
 		dzen.tsupdate = False;
@@ -1119,12 +1255,7 @@ main(int argc, char *argv[]) {
 	if(setup_signal(SIGALRM, catch_alrm) == SIG_ERR)
 		fprintf(stderr, "dzen: error hooking SIGALARM\n");
 
-	if(dzen.slave_win.ishmenu &&
-			!dzen.slave_win.max_lines)
-		dzen.slave_win.max_lines = 1;
-
-
-	x_create_windows(use_ewmh_dock);
+	x_create_windows();
 
 	if(!dzen.slave_win.ishmenu)
 		x_map_window(dzen.title_win.win);
@@ -1148,6 +1279,6 @@ main(int argc, char *argv[]) {
 	if(dzen.ret_val)
 		return dzen.ret_val;
 
-	return EXIT_SUCCESS;
+	exit(EXIT_SUCCESS);
 }
 
