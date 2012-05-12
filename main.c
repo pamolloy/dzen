@@ -906,11 +906,12 @@ int strtoi( char *string )
 	{
 		case ERANGE:
 			eprint("The data could not be represented.\n");
-			exit(1);
+			exit(EXIT_FAILURE);
 		case EINVAL:
 			eprint("Unsupported base / radix\n");
-			exit(1);
+			exit(EXIT_FAILURE);
 	}
+	return value;
 }
 
 void set_dzen()
