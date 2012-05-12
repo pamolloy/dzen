@@ -938,39 +938,6 @@ void set_dzen()
 	dzen.title_win.expand = noexpand;
 }
 
-void parse_opts( int ac, char **av )
-/*
- * Use a table driven approach to parse command line options
- */
-{
-	int i, j;
-	for (i = 0; i < ac; i++) {	// Check command line arguments
-		for (j = 0; opts[j]->name != NULL; j++) {	// Compare built-in options
-			if (strncmp(av[i], opts[j]->name, opts[j]->len)) {
-				if (opts[j]->has_arg == 1) {	// Required argument
-					if (++i < ac)
-						opts[j]->setter(av[i]);
-				}
-				else if (opts[j]->has_arg == 0)	// Not required argument
-					opts[j]->setter(NULL);
-					i++;
-					/* Unnecessary argument satisfies the
-					 * `setter' function declaration in the
-					 * `option' structure declaration */
-				else if (opts[j]->has_arg == 2) {	// Optional argument
-					if (i + 1 > ac)	// Last option, no argument
-						opts[j]->setter(NULL);
-					else if (av[i+1][0] == '-')	// Followed by option
-						opts[j]->setter(NULL);
-					else
-						opts[j]->setter(av[++i]);
-				}
-			}
-		}
-	}
-	print_usage();	//TODO Was a match found?
-}
-
 void set_lines( char *arg )
 {
 	dzen.slave_win.max_lines = strtoi(arg);
@@ -1059,7 +1026,7 @@ void set_menu( char *arg )
 		else if (arg[0] == 'h')
 			dzen.slave_win.ishmenu = True;
 		else
-			// Invalid input
+			eprint("Invalid input\n");
 	}
 }
 
@@ -1162,43 +1129,70 @@ struct option
 	int len,
 	int has_arg,
 	void (*setter)(char *),
+} opts[] = {
+	{ "-l", 3, 1, set_lines },
+	{ "-geometry", 10, 1, set_geometry },
+	{ "-u", 3, 0, set_update },
+	{ "-expand", 8, 1, set_expand },
+	{ "-p", 3, 2, set_persist },
+	{ "-ta", 4, 1, set_title_align },
+	{ "-sa", 4, 1, set_slave_align },
+	{ "-m", 3, 2, set_menu },
+	{ "-fn", 4, 1, set_font },
+	{ "-e", 3, 1, set_event },
+	{ "-title-name", 12, 1, set_title_name },
+	{ "-slave-name", 12, 1, set_slave_name },
+	{ "-bg", 4, 1, set_bg },
+	{ "-fg", 3, 1, set_fg },
+	{ "-y", 3, 1, set_y },
+	{ "-x", 3, 1, set_x },
+	{ "-w", 3, 1, set_width },
+	{ "-h", 3, 1, set_height },
+	{ "-tw", 4, 1, set_title_width },
+	{ "-fn-preload", 12, 1, set_font_preload },
+#ifdef DZEN_XINERAMA
+	{ "-xs", 4, 1, set_xin_screen },
+#endif
+	{ "-dock", 6, 0, set_dock },
+	{ "-v", 3, 0, print_version },
+	{ NULL, NULL}
 };
 
-struct option opts[] = 
-{
-	{ "-l", 3, 1, set_lines };
-	{ "-geometry", 10, 1, set_geometry };
-	{ "-u", 3, 0, set_update };
-	{ "-expand", 8, 1, set_expand };
-	{ "-p", 3, 2, set_persist };
-	{ "-ta", 4, 1, set_title_align };
-	{ "-sa", 4, 1, set_slave_align };
-	{ "-m", 3, 2, set_menu };
-	{ "-fn", 4, 1, set_font };
-	{ "-e", 3, 1, set_event };
-	{ "-title-name", 12, 1, set_title_name };
-	{ "-slave-name", 12, 1, set_slave_name };
-	{ "-bg", 4, 1, set_bg };
-	{ "-fg", 3, 1, set_fg};
-	{ "-y", 3, 1, set_y };
-	{ "-x", 3, 1, set_x };
-	{ "-w", 3, 1, set_width };
-	{ "-h", 3, 1, set_height };
-	{ "-tw", 4, 1, set_title_width };
-	{ "-fn-preload", 12, 1, set_font_preload };
-#ifdef DZEN_XINERAMA
-	{ "-xs", 4, 1, set_xin_screen };
-#endif
-	{ "-dock", 6, 0, set_dock };
-	{ "-v", 3, 0, print_version };
-	{ NULL, NULL};
-}
-
-int main( int ac, char **av )
+void parse_opts( int ac, char **av )
 /*
  * Loop through the command line arguments, and then the
  * built-in flags, calling the appropriate function
  */
+{
+	int i, j;
+	for (i = 0; i < ac; i++) {	// Check command line arguments
+		for (j = 0; opts[j]->name != NULL; j++) {	// Compare built-in options
+			if (strncmp(av[i], opts[j]->name, opts[j]->len)) {
+				if (opts[j]->has_arg == 1) {	// Required argument
+					if (++i < ac)
+						opts[j]->setter(av[i]);
+				}
+				else if (opts[j]->has_arg == 0)	// Not required argument
+					opts[j]->setter(NULL);
+					i++;
+					/* Unnecessary argument satisfies the
+					 * `setter' function declaration in the
+					 * `option' structure declaration */
+				else if (opts[j]->has_arg == 2) {	// Optional argument
+					if (i + 1 > ac)	// Last option, no argument
+						opts[j]->setter(NULL);
+					else if (av[i+1][0] == '-')	// Followed by option
+						opts[j]->setter(NULL);
+					else
+						opts[j]->setter(av[++i]);
+				}
+			}
+		}
+	}
+	print_usage();	//TODO Was a match found?
+}
+
+int main( int ac, char **av )
 {
 	set_dzen();	// Default values
 	x_connect();
