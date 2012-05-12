@@ -997,8 +997,6 @@ void set_persist( char *arg )
 		dzen.timeout = strtoul(arg, &endptr, 10);
 		if (*endptr)
 			dzen.timeout = 0;
-		else
-			i++;
 	}
 }
 
@@ -1009,7 +1007,7 @@ void set_title_align( char *arg )
 
 void set_slave_align( char *arg )
 {
-	dzen.slave_win.alignment = alignment = alignment_from_char(arg[0]);
+	dzen.slave_win.alignment = alignment_from_char(arg[0]);
 }
 
 void set_menu( char *arg )
@@ -1126,10 +1124,10 @@ void print_version( char *arg )
  */
 struct option
 {
-	char *name,
-	int len,
-	int has_arg,
-	void (*setter)(char *),
+	char *name;
+	int len;
+	int has_arg;
+	void (*setter)(char *);
 } opts[] = {
 	{ "-l", 3, 1, set_lines },
 	{ "-geometry", 10, 1, set_geometry },
@@ -1159,6 +1157,7 @@ struct option
 	{ NULL, NULL}
 };
 
+//TODO Divide into two functions and print usage on return 0
 void parse_opts( int ac, char **av )
 /*
  * Loop through the command line arguments, and then the
@@ -1167,34 +1166,36 @@ void parse_opts( int ac, char **av )
 {
 	int i, j;
 	for (i = 0; i < ac; i++) {	// Check command line arguments
-		for (j = 0; opts[j]->name != NULL; j++) {	// Compare built-in options
-			if (strncmp(av[i], opts[j]->name, opts[j]->len)) {
-				if (opts[j]->has_arg == 1) {	// Required argument
+		for (j = 0; opts[j].name != NULL; j++) {	// Compare built-in options
+			if (strncmp(av[i], opts[j].name, opts[j].len)) {
+				if (opts[j].has_arg == 1) {	// Required argument
 					if (++i < ac)
-						opts[j]->setter(av[i]);
+						opts[j].setter(av[i]);
 				}
-				else if (opts[j]->has_arg == 0)	// Not required argument
-					opts[j]->setter(NULL);
+				else if (opts[j].has_arg == 0) {	// Not required argument
+					opts[j].setter(NULL);
 					i++;
 					/* Unnecessary argument satisfies the
 					 * `setter' function declaration in the
 					 * `option' structure declaration */
-				else if (opts[j]->has_arg == 2) {	// Optional argument
+				}
+				else if (opts[j].has_arg == 2) {	// Optional argument
 					if (i + 1 > ac)	// Last option, no argument
-						opts[j]->setter(NULL);
+						opts[j].setter(NULL);
 					else if (av[i+1][0] == '-')	// Followed by option
-						opts[j]->setter(NULL);
+						opts[j].setter(NULL);
 					else
-						opts[j]->setter(av[++i]);
+						opts[j].setter(av[++i]);
 				}
 			}
 		}
 	}
-	print_usage();	//TODO Was a match found?
 }
 
 int main( int ac, char **av )
 {
+	int i;
+
 	set_dzen();	// Default values
 	x_connect();
 	x_read_resources();
@@ -1250,7 +1251,7 @@ int main( int ac, char **av )
 	if(setup_signal(SIGALRM, catch_alrm) == SIG_ERR)
 		fprintf(stderr, "dzen: error hooking SIGALARM\n");
 
-	x_create_windows();
+	x_create_windows(use_ewmh_dock);
 
 	if(!dzen.slave_win.ishmenu)
 		x_map_window(dzen.title_win.win);
