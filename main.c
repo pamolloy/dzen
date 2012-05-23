@@ -1129,26 +1129,26 @@ struct option
 	int has_arg;
 	void (*setter)(char *);
 } opts[] = {
-	{ "-l", 3, 1, set_lines },
-	{ "-geometry", 10, 1, set_geometry },
-	{ "-u", 3, 0, set_update },
-	{ "-expand", 8, 1, set_expand },
-	{ "-p", 3, 2, set_persist },
-	{ "-ta", 4, 1, set_title_align },
+	{ "-l", 2, 1, set_lines },
+	{ "-geometry", 9, 1, set_geometry },
+	{ "-u", 2, 0, set_update },
+	{ "-expand", 7, 1, set_expand },
+	{ "-p", 2, 2, set_persist },
+	{ "-ta", 3, 1, set_title_align },
 	{ "-sa", 4, 1, set_slave_align },
-	{ "-m", 3, 2, set_menu },
-	{ "-fn", 4, 1, set_font },
-	{ "-e", 3, 1, set_event },
-	{ "-title-name", 12, 1, set_title_name },
-	{ "-slave-name", 12, 1, set_slave_name },
-	{ "-bg", 4, 1, set_bg },
-	{ "-fg", 3, 1, set_fg },
-	{ "-y", 3, 1, set_y },
-	{ "-x", 3, 1, set_x },
-	{ "-w", 3, 1, set_width },
-	{ "-h", 3, 1, set_height },
-	{ "-tw", 4, 1, set_title_width },
-	{ "-fn-preload", 12, 1, set_font_preload },
+	{ "-m", 2, 2, set_menu },
+	{ "-fn", 3, 1, set_font },
+	{ "-e", 2, 1, set_event },
+	{ "-title-name", 11, 1, set_title_name },
+	{ "-slave-name", 11, 1, set_slave_name },
+	{ "-bg", 3, 1, set_bg },
+	{ "-fg", 2, 1, set_fg },
+	{ "-y", 2, 1, set_y },
+	{ "-x", 2, 1, set_x },
+	{ "-w", 2, 1, set_width },
+	{ "-h", 2, 1, set_height },
+	{ "-tw", 3, 1, set_title_width },
+	{ "-fn-preload", 11, 1, set_font_preload },
 #ifdef DZEN_XINERAMA
 	{ "-xs", 4, 1, set_xin_screen },
 #endif
@@ -1165,9 +1165,9 @@ void parse_opts( int ac, char **av )
  */
 {
 	int i, j;
-	for (i = 0; i < ac; i++) {	// Check command line arguments
+	for (i = 1; i < ac; i++) {	// Check command line arguments
 		for (j = 0; opts[j].name != NULL; j++) {	// Compare built-in options
-			if (strncmp(av[i], opts[j].name, opts[j].len)) {
+			if (!strncmp(av[i], opts[j].name, opts[j].len)) {
 				if (opts[j].has_arg == 1) {	// Required argument
 					if (++i < ac)
 						opts[j].setter(av[i]);
@@ -1192,7 +1192,7 @@ void parse_opts( int ac, char **av )
 	}
 }
 
-int main( int ac, char **av )
+int main( int ac, char *av[] )
 {
 	int i;
 
