@@ -1154,7 +1154,7 @@ struct option
 #endif
 	{ "-dock", 6, 0, set_dock },
 	{ "-v", 3, 0, print_version },
-	{ NULL, NULL}
+	{ NULL, 0, 0, NULL }
 };
 
 //TODO Divide into two functions and print usage on return 0
