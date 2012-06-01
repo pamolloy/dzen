@@ -784,27 +784,30 @@ handle_newl(void) {
 
 static void
 event_loop(void) {
-	int xfd, ret, dr=0;
+	int xfd, nbits, dr=0;
 	fd_set rmask;
 
+	// Assign connection number for the specified display
 	xfd = ConnectionNumber(dzen.dpy);
 	while(dzen.running) {
-		FD_ZERO(&rmask);
-		FD_SET(xfd, &rmask);
-		if(dr != -2)
+		FD_ZERO(&rmask);	// Clear newly declared set
+		FD_SET(xfd, &rmask);	// Assign the fd to a set
+		if(dr != -2)	//TODO (PM) Won't this statement always return true?
 			FD_SET(STDIN_FILENO, &rmask);
+			//TODO (PM) This would make a second call to the same function.
+			// Can more than one fd be assigned to a set?
 
 		while(XPending(dzen.dpy))
 			handle_xev();
 
-		ret = select(xfd+1, &rmask, NULL, NULL, NULL);
-		if(ret) {
-			if(dr != -2 && FD_ISSET(STDIN_FILENO, &rmask)) {
-				if((dr = read_stdin()) == -1)
+		nbits = select(xfd+1, &rmask, NULL, NULL, NULL);
+		if (nbits != -1) {
+			if (dr != -2 && FD_ISSET(STDIN_FILENO, &rmask)) {
+				if ((dr = read_stdin()) == -1)
 					return;
 				handle_newl();
 			}
-			if(dr == -2 && dzen.timeout > 0) {
+			if (dr == -2 && dzen.timeout > 0) {
 				/* set an alarm to kill us after the timeout */
 				struct itimerval t;
 				memset(&t, 0, sizeof t);
@@ -812,8 +815,12 @@ event_loop(void) {
 				t.it_value.tv_usec = 0;
 				setitimer(ITIMER_REAL, &t, NULL);
 			}
-			if(FD_ISSET(xfd, &rmask))
+			if (FD_ISSET(xfd, &rmask))
 				handle_xev();
+		}
+		else {	//TODO (PM) Consolidate error handling
+			perror("select");
+			exit(EXIT_FAILURE);
 		}
 	}
 	return;
