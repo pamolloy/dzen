@@ -994,7 +994,7 @@ void set_persist( char *arg )
 	char *endptr = NULL;
 	dzen.ispersistent = True;
 	if (arg != NULL) {
-		dzen.timeout = strtoul(arg, &endptr, 10);
+		dzen.timeout = strtoul(arg, &endptr, 10);	//TODO (PM) Replace with strtoi()
 		if (*endptr)
 			dzen.timeout = 0;
 	}
@@ -1169,8 +1169,14 @@ void parse_opts( int ac, char **av )
 		for (j = 0; opts[j].name != NULL; j++) {	// Compare built-in options
 			if (!strncmp(av[i], opts[j].name, opts[j].len)) {
 				if (opts[j].has_arg == 1) {	// Required argument
-					if (++i < ac)
+					if (++i < ac) {
+						
 						opts[j].setter(av[i]);
+					}
+					else {
+						fprintf(stderr, "Missing argument: %s\n", opts[j].name);
+						exit(EXIT_FAILURE);
+					}
 				}
 				else if (opts[j].has_arg == 0) {	// Not required argument
 					opts[j].setter(NULL);
@@ -1182,11 +1188,12 @@ void parse_opts( int ac, char **av )
 				else if (opts[j].has_arg == 2) {	// Optional argument
 					if (i + 1 > ac)	// Last option, no argument
 						opts[j].setter(NULL);
-					else if (av[i+1][0] == '-')	// Followed by option
+					else if (av[i + 1][0] == '-')	// Followed by option
 						opts[j].setter(NULL);
 					else
 						opts[j].setter(av[++i]);
 				}
+				break;
 			}
 		}
 	}
