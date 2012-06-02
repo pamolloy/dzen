@@ -82,7 +82,7 @@ catch_alrm(int s) {
 	(void)s;
 	do_action(onexit);
 	clean_up();
-	exit(0);
+	exit(EXIT_SUCCESS);
 }
 
 static sigfunc *
@@ -802,6 +802,7 @@ event_loop(void) {
 
 		nbits = select(xfd+1, &rmask, NULL, NULL, NULL);
 		if (nbits != -1) {
+			//TODO (PM) Again, dr has only been assigned the value, zero
 			if (dr != -2 && FD_ISSET(STDIN_FILENO, &rmask)) {
 				if ((dr = read_stdin()) == -1)
 					return;
