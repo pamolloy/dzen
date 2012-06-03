@@ -142,21 +142,30 @@ free_buffer(void) {
 		last_cnt = 0;
 }
 
+/*
+ * Read one line from stdin. If zero bits are read then return -1 if dzen is
+ * not persistent, otherwise return -2 if it is persistent.
+ */
+//TODO (PM) The check for `ispersistent' is outside the logical scope of this
+// function
 static int
 read_stdin(void) {
 	char buf[MAX_LINE_LEN],
 		 retbuf[MAX_LINE_LEN];
 	ssize_t n, n_off=0;
 
-	if(!(n = read(STDIN_FILENO, buf, sizeof buf))) {
-		if(!dzen.ispersistent) {
-			dzen.running = False;
+	n = read(STDIN_FILENO, buf, sizeof buf);
+	if(n == 0) {	// If 0 bits are read
+		if(!dzen.ispersistent) {	// And dzen is not persistent
+			dzen.running = False;	// Stop running
+			//TODO (PM) The value of `running' will never be checked since the
+			// event loop returns if this function returns -1
 			return -1;
 		}
 		else
-			return -2;
+			return -2;	// Is persistent
 	}
-	else {
+	else if (n > 0) {
 		while((n_off = chomp(buf, retbuf, n_off, n))) {
 			if(!dzen.slave_win.ishmenu
 					&& dzen.tsupdate
@@ -171,6 +180,10 @@ read_stdin(void) {
 				drawbody(retbuf);
 			dzen.cur_line++;
 		}
+	}
+	else {
+		perror("read");	//TODO (PM) Consolidate error handling
+		exit(EXIT_FAILURE);
 	}
 	return 0;
 }
